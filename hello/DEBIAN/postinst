@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "postinst says hello";
+exit 0;
