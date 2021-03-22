@@ -1,0 +1,23 @@
+#!/bin/env python3
+import re
+
+DEFAULT_LANGUAGE="English"
+MESSAGES = {
+    "English": "hello",
+    "French": "bonjour",
+}
+
+# Load configuration settings
+settings = open("/etc/hello/settings.conf", "r").read().split("\n")
+
+language = DEFAULT_LANGUAGE
+# Search for the Language attribute
+for setting in settings:
+    if not setting.strip():
+        continue
+    (name, value) = re.split(r'\s*:\s*', setting)
+    if name == "Language" and value in MESSAGES.keys():
+        language = value
+
+# Say hello!
+print(MESSAGES[language])
