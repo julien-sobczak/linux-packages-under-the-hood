@@ -11,21 +11,21 @@ import (
 	"strings"
 
 	"github.com/blakesmith/ar"
+	"github.com/julien-sobczak/deb822"
 	"github.com/julien-sobczak/linux-packages-from-scratch/internal/database"
-	"github.com/julien-sobczak/linux-packages-from-scratch/internal/deb822"
 )
 
-func install(args []string) {
+func install(dbdir string, args []string) {
 	if len(args) < 1 {
 		log.Fatalf("Missing package archive(s)")
 	}
 
 	// Read the database
-	db, err := database.Load()
+	db, err := database.Load(dbdir)
 	if err != nil {
 		log.Fatalf("Unable to read the database: %v", err)
 	}
-	log.Printf("(Reading database ... %d files and directories currently installed.)", db.InstalledFiles())
+	fmt.Printf("(Reading database ... %d files and directories currently installed.)", db.InstalledFiles())
 
 	// Unpack and configure the archive(s)
 	for _, archivePath := range args {
@@ -46,7 +46,7 @@ func processArchive(db *database.Directory, archivePath string) error {
 	defer f.Close()
 	reader := ar.NewReader(f)
 
-	// SKip debian-binary
+	// Skip debian-binary
 	_, err = reader.Next()
 	if err != nil {
 		return err
@@ -60,11 +60,13 @@ func processArchive(db *database.Directory, archivePath string) error {
 	var bufControl bytes.Buffer
 	io.Copy(&bufControl, reader)
 
-	pkg, err := parseControl(bufControl)
+	pkg, err := parseControl(db, bufControl)
 	if err != nil {
 		return err
 	}
-	db.Packages = append(db.Packages, *pkg)
+
+	// Add new package in database
+	db.Packages = append(db.Packages, pkg)
 	db.Sync()
 
 	// data.tar
@@ -89,12 +91,14 @@ func processArchive(db *database.Directory, archivePath string) error {
 	return nil
 }
 
-func parseControl(buf bytes.Buffer) (*database.PackageInfo, error) {
+func parseControl(db *database.Directory, buf bytes.Buffer) (*database.PackageInfo, error) {
 
 	pkg := database.PackageInfo{
+		DatabasePath:      db.Path,
+		MD5sums:           make(map[string]string),
+		MaintainerScripts: make(map[string]string),
 		Status:            "not-installed",
 		StatusDirty:       true,
-		MaintainerScripts: make(map[string]string),
 	}
 
 	tr := tar.NewReader(&buf)
@@ -123,7 +127,24 @@ func parseControl(buf bytes.Buffer) (*database.PackageInfo, error) {
 			if err != nil {
 				return nil, err
 			}
-			pkg.Paragraph = document.Paragraphs[0]
+			controlParagraph := document.Paragraphs[0]
+
+			// Copy control fields and add the Status field in second position
+			pkg.Paragraph = deb822.Paragraph{
+				Values: make(map[string]string),
+			}
+			// Make sure the field Package comes first
+			pkg.Paragraph.Order = append(pkg.Paragraph.Order, "Package", "Status")
+			pkg.Paragraph.Values["Package"] = controlParagraph.Value("Package")
+			pkg.Paragraph.Values["Status"] = "install ok non-installed"
+			// Add remaining ordered fields
+			for _, field := range controlParagraph.Order {
+				if field == "Package" {
+					continue
+				}
+				pkg.Paragraph.Order = append(pkg.Paragraph.Order, field)
+				pkg.Paragraph.Values[field] = controlParagraph.Value(field)
+			}
 		case "conffiles":
 			pkg.Conffiles, err = database.ParseConffiles(buf.String())
 			if err != nil {

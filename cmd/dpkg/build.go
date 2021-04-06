@@ -12,66 +12,6 @@ import (
 	"github.com/blakesmith/ar"
 )
 
-// LIKE tarball_pack
-func tarballPack(directory string, filter func(string) bool) ([]byte, error) {
-	var bufdata bytes.Buffer
-	twdata := tar.NewWriter(&bufdata)
-	err := filepath.Walk(directory, func(path string, info os.FileInfo, errParent error) error {
-		if info.IsDir() {
-			return nil
-		}
-		if filter != nil && filter(path) {
-			return nil
-		}
-		sep := fmt.Sprintf("%c", filepath.Separator)
-		hdr := &tar.Header{
-			Name: strings.TrimPrefix(strings.TrimPrefix(path, directory), sep), // Ex: hello/DEBIAN/control => control
-			Uid:  0, // root
-			Gid:  0, // root
-			Mode: 0650,
-			Size: info.Size(),
-		}
-		if err := twdata.WriteHeader(hdr); err != nil {
-			log.Fatal(err)
-		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if _, err := twdata.Write(content); err != nil {
-			log.Fatal(err)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	if err := twdata.Close(); err != nil {
-		return nil, err
-	}
-
-	return bufdata.Bytes(), nil
-}
-
-// LIKE ar_member_put_file
-func arPutFile(w *ar.Writer, name string, body []byte) error {
-	hdr := &ar.Header{
-		Name: name,
-		Uid:  0,
-		Gid:  0,
-		Mode: 0644,
-		Size: int64(len(body)),
-	}
-	if err := w.WriteHeader(hdr); err != nil {
-		return err
-	}
-	if _, err := w.Write(body); err != nil {
-		return err
-	}
-	return nil
-}
-
 func build(args []string) {
 	if len(args) < 2 {
 		log.Fatalf("Missing 'directory' and/or 'dest' arguments")
@@ -90,7 +30,7 @@ func build(args []string) {
 		}
 	}()
 
-	writer := ar.NewWriter(fdeb) // LIKE dpkg_ar_create
+	writer := ar.NewWriter(fdeb)
 	if err := writer.WriteGlobalHeader(); err != nil {
 		log.Fatal(err)
 	}
@@ -125,3 +65,65 @@ func build(args []string) {
 		log.Fatal(err)
 	}
 }
+
+/** arPutFile appends a new file in an ar archive. */
+func arPutFile(w *ar.Writer, name string, body []byte) error {
+	hdr := &ar.Header{
+		Name: name,
+		Uid:  0,
+		Gid:  0,
+		Mode: 0644,
+		Size: int64(len(body)),
+	}
+	if err := w.WriteHeader(hdr); err != nil {
+		return err
+	}
+	if _, err := w.Write(body); err != nil {
+		return err
+	}
+	return nil
+}
+
+/** tarballPack appends every file under directory that passes the filter in the tar archive. */
+func tarballPack(directory string, filter func(string) bool) ([]byte, error) {
+	var bufdata bytes.Buffer
+	twdata := tar.NewWriter(&bufdata)
+	err := filepath.Walk(directory, func(path string, info os.FileInfo, errParent error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if filter != nil && filter(path) {
+			return nil
+		}
+		sep := fmt.Sprintf("%c", filepath.Separator)
+		hdr := &tar.Header{
+			Name: strings.TrimPrefix(strings.TrimPrefix(path, directory), sep), // Ex: hello/DEBIAN/control => control
+			Uid:  0,                                                            // root
+			Gid:  0,                                                            // root
+			Mode: 0650,
+			Size: info.Size(),
+		}
+		if err := twdata.WriteHeader(hdr); err != nil {
+			log.Fatal(err)
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if _, err := twdata.Write(content); err != nil {
+			log.Fatal(err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	if err := twdata.Close(); err != nil {
+		return nil, err
+	}
+
+	return bufdata.Bytes(), nil
+}
+
+
