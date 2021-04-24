@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "preinst says hello";
+exit 0;

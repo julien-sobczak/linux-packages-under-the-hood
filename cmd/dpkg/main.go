@@ -2,6 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
+
+	"github.com/julien-sobczak/linux-packages-from-scratch/internal/dpkg"
 )
 
 func main() {
@@ -13,9 +17,19 @@ func main() {
 	args := flag.Args()
 
 	if flagBuild {
-		build(args)
+		if len(args) < 2 {
+			fmt.Printf("Missing 'directory' and/or 'dest' arguments\n")
+			os.Exit(1)
+		}
+		directory := args[0]
+		dest := args[1]
+		dpkg.Build(directory, dest)
 	} else if flagInstall {
-		install("/var/lib/dpkg", args)
+		if len(args) < 1 {
+			fmt.Printf("Missing package archive(s)\n")
+			os.Exit(1)
+		}
+		dpkg.Install(args)
 	}
 
 }
