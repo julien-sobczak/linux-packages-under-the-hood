@@ -5,7 +5,7 @@ run-hello:
 	go run hello.go
 
 test:
-	go test ./...
+	go test -count=1 ./...
 
 build-cmd:
 	env GOOS=linux GOARCH=amd64 go build -o bin/dpkg cmd/dpkg/*.go
