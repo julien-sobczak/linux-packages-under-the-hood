@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -124,7 +123,7 @@ func (a *pkgAcquire) downloadItem(item Item) error {
 	a.hitMutex.Unlock()
 
 	if err != nil {
-		fmt.Printf("Err%d: %v\n\t%s\n", hit, item, err)
+		fmt.Printf("Err:%d %v\n\t%s\n", hit, item, err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -430,14 +429,6 @@ func gpgDecode(filename string, publicKey string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	for k, v := range b.ArmoredSignature.Header {
-		log.Printf("%s => %s", k, v)
-	}
-	// TODO FIXME
-	//  W: GPG error: http://ppa.launchpad.net precise
-	//  Release: The following signatures couldn't be verified because the public key is not available:
-	//  NO_PUBKEY 2EA8F35793D8809A
 
 	return b.Plaintext, nil
 }

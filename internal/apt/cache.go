@@ -104,6 +104,10 @@ func (c *CacheFile) BuildDepCache() {
 
 	// Add state for package already installed
 	for _, pkg := range status.Paragraphs {
+		// The status file also contains packages that was partially installed or removed.
+		if !strings.Contains(pkg.Value("Status"), "installed") {
+			continue
+		}
 		state, ok := states[pkg.Value("Package")]
 		if !ok {
 			state = &StateCache{}
