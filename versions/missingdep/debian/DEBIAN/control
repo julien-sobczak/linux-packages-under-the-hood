@@ -1,8 +1,0 @@
-Package: hello
-Version: 1.1-1
-Section: base
-Priority: optional
-Depends: unknown (>= 2.2.1)
-Architecture: amd64
-Maintainer: Julien Sobczak 
-Description: Say Hello
